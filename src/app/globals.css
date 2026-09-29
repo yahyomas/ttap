@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #fafafa;
+  --fg: #111827;
+  --muted: #6b7280;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --accent: #dc2626;
+  --accent-fg: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0f17;
+    --fg: #f3f4f6;
+    --muted: #9ca3af;
+    --card: #111827;
+    --border: #1f2937;
+    --accent: #ef4444;
+    --accent-fg: #ffffff;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.card {
+  @apply rounded-xl border border-border bg-card p-5;
+}
+.btn,
+.btn-primary,
+.btn-secondary {
+  @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50;
+}
+.btn-primary {
+  @apply bg-accent text-accent-fg hover:opacity-90;
+}
+.btn-secondary {
+  @apply border border-border bg-card hover:bg-border/40;
+}
+.input {
+  @apply w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-accent;
+}
+.label {
+  @apply mb-1 block text-sm font-medium text-muted;
+}
+.badge {
+  @apply inline-block rounded-full px-2 py-0.5 text-xs font-medium;
+}
