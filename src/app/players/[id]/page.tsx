@@ -10,7 +10,7 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: player }, { data: rank }, { data: history }] = await Promise.all([
+  const [{ data: player }, { data: rank }, { data: history }, { data: stats }] = await Promise.all([
     supabase.from("players").select("*").eq("id", id).eq("club_id", ctx.club.id).maybeSingle(),
     supabase.from("leaderboard").select("rank").eq("player_id", id).maybeSingle(),
     supabase
@@ -19,6 +19,7 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
       .eq("player_id", id)
       .order("created_at", { ascending: false })
       .limit(50),
+    supabase.from("player_match_stats").select("wins, losses").eq("player_id", id).maybeSingle(),
   ]);
   if (!player) notFound();
 
@@ -45,7 +46,7 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="card"><div className="text-sm text-muted">Пик рейтинга</div><div className="mt-1 text-2xl font-semibold"><Rating value={player.peak_rating} /></div></div>
         <div className="card"><div className="text-sm text-muted">Турниров</div><div className="mt-1 text-2xl font-semibold">{player.tournament_count}</div></div>
-        <div className="card"><div className="text-sm text-muted">W / L</div><div className="mt-1 text-2xl font-semibold text-muted">— / —</div></div>
+        <div className="card"><div className="text-sm text-muted">W / L</div><div className="mt-1 text-2xl font-semibold tabular-nums">{stats?.wins ?? 0} / {stats?.losses ?? 0}</div></div>
       </div>
 
       <section className="mt-8">

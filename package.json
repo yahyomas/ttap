@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration": "SMOKE=1 vitest run --config vitest.integration.config.ts",
     "db:types": "supabase gen types typescript --project-id cjaziveugiiuzplbqbtg > src/lib/supabase/database.types.ts"
   },
   "dependencies": {

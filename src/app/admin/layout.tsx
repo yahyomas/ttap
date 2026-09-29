@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 const ADMIN_NAV = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/players", label: "Игроки" },
+  { href: "/admin/tournaments", label: "Турниры" },
   { href: "/admin/audit", label: "Audit Log" },
 ];
 

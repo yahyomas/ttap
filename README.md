@@ -24,7 +24,8 @@ supabase/migrations/   SQL-миграции (уже применены к про
 ```bash
 npm install
 npm run dev       # http://localhost:3000
-npm test          # rating engine tests
+npm test              # unit: rating engine + bracket generator
+npm run test:integration   # сквозной прогон турнира против реального Supabase (нужен seed ниже)
 npm run typecheck
 ```
 
@@ -48,6 +49,11 @@ Dashboard → Authentication → URL Configuration:
 
 Для быстрого локального тестирования можно отключить «Confirm email» в Authentication → Providers → Email.
 
+## Тестовые данные
+
+`supabase/seed/smoke.sql` (SQL Editor) создаёт админа `smoke-admin@test.local` / `smoke-test-2026` и 6 игроков
+с разными рейтингами. Нужен для `npm run test:integration` и ручной проверки турниров.
+
 ## Ключевые решения (см. спеку и `src/domain/rating`)
 
 - `players.current_rating` — проекция; источник истины — `rating_transactions` (idempotent по `event_id`).
@@ -55,12 +61,14 @@ Dashboard → Authentication → URL Configuration:
 - Челленджи с игроком `NEW` не влияют на рейтинг (решение владельца продукта).
 - Подтверждённый RTTF инициализирует Club Rating как `PROVISIONAL` (`external_seed_policy`).
 - Все правила rating engine — в `clubs.settings.rating`, дефолты в `src/domain/rating/config.ts`.
+- **Турниры:** дельты считаются от рейтингов, зафиксированных при формировании сетки (`rating_at_lock`), — результат не зависит от порядка ввода. Матч с игроком `NEW` — без рейтинга для обеих сторон; новичок получает стартовый рейтинг при завершении турнира (`NEWCOMER_INITIAL`: среднее соперников ± 25 за победу/поражение, шаг 25, мин. 100). Формула живёт в TS; RPC получает готовые дельты, сверяет `rating_before` с текущей проекцией и применяет всё в одной транзакции.
+- Исправление результата (§45) возможно, пока следующий матч не сыгран: REVERSAL-транзакции + новые. Полный пересчёт турнира — в бэклоге.
 
 ## Фазы
 
 - [x] Phase 1 — Foundation: схема, auth, онбординг, одобрение, профили, игроки
 - [x] Phase 2 (ядро) — rating engine + тесты, внешние рейтинги, ручные корректировки, история, лидерборд
-- [ ] Phase 3 — Tournaments (single elimination, снапшот рейтингов при lock, newcomer initial rating)
+- [x] Phase 3 — Tournaments: single elimination, посев, byes, снапшот рейтингов при lock, ввод/исправление результатов, завершение, стартовый рейтинг новичков
 - [ ] Phase 4 — Challenges & match confirmation
 - [ ] Phase 5 — Telegram bot (linking, notifications via outbox, actions)
 - [ ] Phase 6 — Analytics & polish

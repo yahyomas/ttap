@@ -6,6 +6,7 @@ const NAV = [
   { href: "/", label: "Главная" },
   { href: "/leaderboard", label: "Рейтинг" },
   { href: "/players", label: "Игроки" },
+  { href: "/tournaments", label: "Турниры" },
   { href: "/profile", label: "Профиль" },
 ];
 
