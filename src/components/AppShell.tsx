@@ -53,7 +53,7 @@ export async function AppShell({ ctx, children }: { ctx: SessionContext; childre
         </nav>
       </header>
       <main className="flex-1 py-6">{children}</main>
-      <footer className="py-4 text-xs text-muted">TT Club Platform · MVP</footer>
+      <footer className="py-4 text-xs text-muted">Ermak Tennis · клубная платформа</footer>
     </div>
   );
 }
