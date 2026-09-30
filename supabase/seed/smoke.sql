@@ -49,3 +49,17 @@ begin
     update public.players set user_id = r.id where club_id = v_club and display_name = r.name and last_name = 'Seed' and user_id is null;
   end loop;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- Production cron for Telegram delivery (run once the app is deployed; replace URL and secret).
+-- pg_net posts to the dispatcher every minute; after() in server actions delivers instantly,
+-- so this is a safety net for anything they missed (e.g. bot-initiated actions on cold routes).
+-- ---------------------------------------------------------------------------
+-- create extension if not exists pg_net with schema extensions;
+-- select cron.schedule('dispatch-notifications', '* * * * *', $$
+--   select net.http_post(
+--     url := 'https://YOUR-DOMAIN/api/notifications/dispatch',
+--     headers := '{"Authorization": "Bearer YOUR_CRON_SECRET", "Content-Type": "application/json"}'::jsonb,
+--     body := '{}'::jsonb
+--   );
+-- $$);

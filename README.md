@@ -29,8 +29,20 @@ npm run test:integration   # сквозной прогон турнира про
 npm run typecheck
 ```
 
-`.env.local` уже содержит URL и anon key. `SUPABASE_SERVICE_ROLE_KEY` понадобится с Phase 3
-(Supabase Dashboard → Project Settings → API → service_role).
+`.env.local` содержит все ключи (Supabase, бот, секреты webhook/cron). См. `.env.example`.
+
+## Telegram-бот (@ermak_ttap_bot)
+
+```bash
+npm run tg:poll                         # локально: long polling + доставка outbox каждые 10 с
+npm run tg:webhook -- https://домен     # прод: регистрирует webhook /api/telegram/webhook
+```
+Одновременно polling и webhook работать не могут. На проде дополнительно включите cron из
+`supabase/seed/smoke.sql` (pg_net → `/api/notifications/dispatch`) как страховку.
+
+Привязка: профиль → «Привязать Telegram» → одноразовая ссылка `t.me/<bot>?start=<token>` (10 мин).
+Действия из бота идут через `tg_act()` — RPC от service role, который на время транзакции
+подставляет `auth.uid()` привязанного пользователя и вызывает те же RPC, что и сайт (§57).
 
 ## Первый администратор
 
@@ -73,5 +85,5 @@ Dashboard → Authentication → URL Configuration:
 - [x] Phase 2 (ядро) — rating engine + тесты, внешние рейтинги, ручные корректировки, история, лидерборд
 - [x] Phase 3 — Tournaments: single elimination, посев, byes, снапшот рейтингов при lock, ввод/исправление результатов, завершение, стартовый рейтинг новичков
 - [x] Phase 4 — Challenges: вызов → принятие → ввод счёта → подтверждение соперником (или отклонение, или по таймауту), рейтинг; in-app уведомления (outbox для Telegram)
-- [ ] Phase 5 — Telegram bot (linking, notifications via outbox, actions)
+- [x] Phase 5 — Telegram: привязка по одноразовой ссылке, доставка outbox, команды, inline-действия (принять вызов, зарегистрироваться)
 - [ ] Phase 6 — Analytics & polish

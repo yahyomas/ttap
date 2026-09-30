@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/session";
+import { queueDispatch } from "@/lib/telegram/queue";
 
 export type AdminActionState = { error?: string; ok?: boolean };
 
@@ -12,6 +13,7 @@ export async function approvePlayer(playerId: string) {
   const supabase = await createClient();
   const { error } = await supabase.rpc("admin_approve_player", { p_player_id: playerId });
   if (error) throw new Error(error.message);
+  queueDispatch();
   revalidatePath("/admin");
   revalidatePath("/admin/players");
   revalidatePath(`/admin/players/${playerId}`);
@@ -38,6 +40,7 @@ export async function verifyExternalRating(ratingId: string, verdict: "VERIFIED"
     p_verdict: verdict,
   });
   if (error) throw new Error(error.message);
+  queueDispatch();
   revalidatePath("/admin");
   revalidatePath("/admin/players");
   revalidatePath(`/admin/players/${playerId}`);

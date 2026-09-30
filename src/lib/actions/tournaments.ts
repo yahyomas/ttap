@@ -12,6 +12,7 @@ import {
   lockBracket as lockBracketService,
   TournamentError,
 } from "@/lib/services/tournaments";
+import { queueDispatch } from "@/lib/telegram/queue";
 
 export type ActionState = { error?: string; ok?: boolean; message?: string };
 
@@ -22,6 +23,7 @@ function msg(e: unknown): string {
 }
 
 function revalidateTournament(id: string) {
+  queueDispatch();
   revalidatePath("/tournaments");
   revalidatePath(`/tournaments/${id}`);
   revalidatePath("/admin/tournaments");
@@ -106,6 +108,7 @@ export async function createTournament(_prev: ActionState, formData: FormData): 
     club_id: ctx.club.id, actor_id: ctx.userId, action: "TOURNAMENT_CREATED",
     entity_type: "tournament", entity_id: data.id, after: { name: d.name, starts_at: d.starts_at },
   });
+  queueDispatch();
   revalidatePath("/tournaments");
   revalidatePath("/admin/tournaments");
   redirect(`/admin/tournaments/${data.id}`);

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireMember, getSessionContext } from "@/lib/session";
 import { confirmChallengeResult, ChallengeError } from "@/lib/services/challenges";
+import { queueDispatch } from "@/lib/telegram/queue";
 
 export type ActionState = { error?: string; ok?: boolean };
 
@@ -14,6 +15,7 @@ function msg(e: unknown) {
 }
 
 function revalidate(id?: string) {
+  queueDispatch();
   revalidatePath("/challenges");
   if (id) revalidatePath(`/challenges/${id}`);
   revalidatePath("/admin/challenges");

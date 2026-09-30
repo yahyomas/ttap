@@ -770,6 +770,39 @@ export type Database = {
           },
         ]
       }
+      telegram_accounts: {
+        Row: {
+          chat_id: number
+          first_name: string | null
+          linked_at: string
+          telegram_id: number
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          chat_id: number
+          first_name?: string | null
+          linked_at?: string
+          telegram_id: number
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          chat_id?: number
+          first_name?: string | null
+          linked_at?: string
+          telegram_id?: number
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      telegram_link_tokens: {
+        Row: { expires_at: string; token: string; used_at: string | null; user_id: string }
+        Insert: { expires_at: string; token: string; used_at?: string | null; user_id: string }
+        Update: { expires_at?: string; token?: string; used_at?: string | null; user_id?: string }
+        Relationships: []
+      }
       tournament_participants: {
         Row: {
           club_id: string
@@ -1147,6 +1180,17 @@ export type Database = {
         Args: { p_challenge_id: string; p_loser_sets: number; p_winner_id: string; p_winner_sets: number }
         Returns: string
       }
+      create_telegram_link_token: { Args: never; Returns: string }
+      tg_act: {
+        Args: { p_action: string; p_args?: Json; p_telegram_id: number }
+        Returns: Json
+      }
+      tg_context: { Args: { p_telegram_id: number }; Returns: Json }
+      tg_link: {
+        Args: { p_chat_id: number; p_first_name?: string; p_telegram_id: number; p_token: string; p_username?: string }
+        Returns: Json
+      }
+      unlink_telegram: { Args: never; Returns: undefined }
       current_club_ids: { Args: never; Returns: string[] }
       is_club_admin: { Args: { p_club_id: string }; Returns: boolean }
       is_club_member: { Args: { p_club_id: string }; Returns: boolean }
