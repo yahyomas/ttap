@@ -40,6 +40,19 @@ export default async function DashboardPage() {
   ]);
 
   const p = ctx.player;
+  const { data: myChallenges } = p
+    ? await supabase
+        .from("challenges")
+        .select("id, status, proposed_at, challenger_id, opponent_id, submitted_by, challenger:players!challenges_challenger_id_fkey(display_name), opponent:players!challenges_opponent_id_fkey(display_name)")
+        .or(`challenger_id.eq.${p.id},opponent_id.eq.${p.id}`)
+        .in("status", ["PENDING", "ACCEPTED", "RESULT_SUBMITTED"])
+        .order("proposed_at")
+        .limit(20)
+    : { data: [] as never[] };
+  const chs = myChallenges ?? [];
+  const incomingCount = chs.filter((c) => c.status === "PENDING" && c.opponent_id === p?.id).length;
+  const toConfirmCount = chs.filter((c) => c.status === "RESULT_SUBMITTED" && c.submitted_by !== p?.id).length;
+  const nextMatch = chs.find((c) => c.status === "ACCEPTED");
   const myReg = p && nextT
     ? (await supabase.from("tournament_participants").select("id").eq("tournament_id", nextT.id).eq("player_id", p.id).eq("status", "REGISTERED").maybeSingle()).data
     : null;
@@ -128,10 +141,26 @@ export default async function DashboardPage() {
             <div className="mt-1 text-sm text-muted">Пока не запланирован</div>
           )}
         </Link>
-        <div className="card">
+        <Link href="/challenges" className="card block hover:border-accent/60">
           <div className="text-sm text-muted">Челленджи</div>
-          <div className="mt-1 font-medium text-muted">Скоро · Phase 4</div>
-        </div>
+          {nextMatch ? (
+            <>
+              <div className="mt-1 font-medium">
+                vs {nextMatch.challenger_id === p?.id ? nextMatch.opponent.display_name : nextMatch.challenger.display_name}
+              </div>
+              <div className="text-sm text-muted">
+                {new Date(nextMatch.proposed_at).toLocaleString("ru-RU", { timeZone: ctx.club.timezone, weekday: "short", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
+              </div>
+            </>
+          ) : (
+            <div className="mt-1 text-sm text-muted">Нет запланированных матчей</div>
+          )}
+          <div className="mt-2 flex flex-wrap gap-3 text-sm">
+            {toConfirmCount > 0 && <span className="text-purple-600">Подтвердить результат: {toConfirmCount}</span>}
+            {incomingCount > 0 && <span className="text-amber-600">Входящих вызовов: {incomingCount}</span>}
+            {toConfirmCount === 0 && incomingCount === 0 && <span className="text-accent">Бросить вызов →</span>}
+          </div>
+        </Link>
       </section>
     </AppShell>
   );

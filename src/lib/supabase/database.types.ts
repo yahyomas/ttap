@@ -107,6 +107,89 @@ export type Database = {
           },
         ]
       }
+      challenges: {
+        Row: {
+          challenger_id: string
+          club_id: string
+          completed_at: string | null
+          created_at: string
+          dispute_note: string | null
+          id: string
+          match_id: string | null
+          message: string | null
+          opponent_id: string
+          proposed_at: string
+          responded_at: string | null
+          status: Database["public"]["Enums"]["challenge_status"]
+          submitted_at: string | null
+          submitted_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          challenger_id: string
+          club_id: string
+          completed_at?: string | null
+          created_at?: string
+          dispute_note?: string | null
+          id?: string
+          match_id?: string | null
+          message?: string | null
+          opponent_id: string
+          proposed_at: string
+          responded_at?: string | null
+          status?: Database["public"]["Enums"]["challenge_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          challenger_id?: string
+          club_id?: string
+          completed_at?: string | null
+          created_at?: string
+          dispute_note?: string | null
+          id?: string
+          match_id?: string | null
+          message?: string | null
+          opponent_id?: string
+          proposed_at?: string
+          responded_at?: string | null
+          status?: Database["public"]["Enums"]["challenge_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenges_challenger_id_fkey"
+            columns: ["challenger_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenges_opponent_id_fkey"
+            columns: ["opponent_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenges_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenges_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clubs: {
         Row: {
           created_at: string
@@ -162,6 +245,7 @@ export type Database = {
           rated: boolean | null
           round: number | null
           status: Database["public"]["Enums"]["match_status"]
+          submitted_by: string | null
           tournament_id: string | null
           updated_at: string
           winner_player_id: string | null
@@ -191,6 +275,7 @@ export type Database = {
           rated?: boolean | null
           round?: number | null
           status?: Database["public"]["Enums"]["match_status"]
+          submitted_by?: string | null
           tournament_id?: string | null
           updated_at?: string
           winner_player_id?: string | null
@@ -220,6 +305,7 @@ export type Database = {
           rated?: boolean | null
           round?: number | null
           status?: Database["public"]["Enums"]["match_status"]
+          submitted_by?: string | null
           tournament_id?: string | null
           updated_at?: string
           winner_player_id?: string | null
@@ -346,6 +432,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          club_id: string
+          created_at: string
+          id: number
+          kind: Database["public"]["Enums"]["notification_kind"]
+          link: string | null
+          payload: Json
+          read_at: string | null
+          telegram_sent_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          club_id: string
+          created_at?: string
+          id?: never
+          kind: Database["public"]["Enums"]["notification_kind"]
+          link?: string | null
+          payload?: Json
+          read_at?: string | null
+          telegram_sent_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          club_id?: string
+          created_at?: string
+          id?: never
+          kind?: Database["public"]["Enums"]["notification_kind"]
+          link?: string | null
+          payload?: Json
+          read_at?: string | null
+          telegram_sent_at?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       player_external_ratings: {
         Row: {
@@ -991,6 +1119,34 @@ export type Database = {
         }
         Returns: string
       }
+      cancel_challenge: {
+        Args: { p_challenge_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      confirm_challenge_result: {
+        Args: { p_calc: Json; p_challenge_id: string; p_deltas: Json; p_rated: boolean; p_version?: number }
+        Returns: undefined
+      }
+      create_challenge: {
+        Args: { p_message?: string; p_opponent_id: string; p_proposed_at: string }
+        Returns: string
+      }
+      mark_notifications_read: {
+        Args: { p_ids?: number[] }
+        Returns: undefined
+      }
+      reject_challenge_result: {
+        Args: { p_challenge_id: string; p_note: string }
+        Returns: undefined
+      }
+      respond_challenge: {
+        Args: { p_accept: boolean; p_challenge_id: string }
+        Returns: undefined
+      }
+      submit_challenge_result: {
+        Args: { p_challenge_id: string; p_loser_sets: number; p_winner_id: string; p_winner_sets: number }
+        Returns: string
+      }
       current_club_ids: { Args: never; Returns: string[] }
       is_club_admin: { Args: { p_club_id: string }; Returns: boolean }
       is_club_member: { Args: { p_club_id: string }; Returns: boolean }
@@ -1008,11 +1164,34 @@ export type Database = {
       }
     }
     Enums: {
+      challenge_status:
+        | "PENDING"
+        | "ACCEPTED"
+        | "DECLINED"
+        | "CANCELLED"
+        | "EXPIRED"
+        | "RESULT_SUBMITTED"
+        | "COMPLETED"
       club_role: "PLAYER" | "ADMIN"
       external_rating_source: "RTTF"
       gender: "MALE" | "FEMALE"
       match_status: "PENDING" | "CONFIRMED" | "CANCELLED" | "CORRECTED"
       match_type: "TOURNAMENT" | "CHALLENGE" | "CASUAL"
+      notification_kind:
+        | "CHALLENGE_CREATED"
+        | "CHALLENGE_ACCEPTED"
+        | "CHALLENGE_DECLINED"
+        | "CHALLENGE_CANCELLED"
+        | "CHALLENGE_RESULT_SUBMITTED"
+        | "CHALLENGE_RESULT_REJECTED"
+        | "CHALLENGE_COMPLETED"
+        | "TOURNAMENT_REGISTRATION_OPEN"
+        | "BRACKET_LOCKED"
+        | "TOURNAMENT_MATCH_CONFIRMED"
+        | "TOURNAMENT_COMPLETED"
+        | "RATING_CHANGED"
+        | "PLAYER_APPROVED"
+        | "EXTERNAL_RATING_VERIFIED"
       participant_status: "REGISTERED" | "WITHDRAWN" | "NO_SHOW"
       player_status: "PENDING" | "ACTIVE" | "BLOCKED"
       playing_hand: "RIGHT" | "LEFT"
@@ -1161,6 +1340,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      challenge_status: ["PENDING", "ACCEPTED", "DECLINED", "CANCELLED", "EXPIRED", "RESULT_SUBMITTED", "COMPLETED"],
       club_role: ["PLAYER", "ADMIN"],
       external_rating_source: ["RTTF"],
       gender: ["MALE", "FEMALE"],

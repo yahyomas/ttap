@@ -23,6 +23,15 @@ describe.skipIf(!enabled)("tournament flow (integration)", () => {
     if (error) throw error;
     const { data: club } = await db.from("clubs").select("id").eq("slug", "tt-club").single();
     clubId = club!.id;
+    // reset seed players to the documented state (spec §91) so expectations are deterministic
+    const reset: Array<[string, number | null, "NEW" | "PROVISIONAL" | "ESTABLISHED", number]> = [
+      ["Alex", 520, "ESTABLISHED", 8], ["Bek", 495, "ESTABLISHED", 7], ["Timur", 410, "PROVISIONAL", 2],
+      ["Dima", 380, "ESTABLISHED", 6], ["Sasha", 350, "ESTABLISHED", 9], ["Aziz", null, "NEW", 0],
+    ];
+    for (const [name, rating, status, count] of reset) {
+      await db.from("players").update({ current_rating: rating, peak_rating: rating, rating_status: status, tournament_count: count })
+        .eq("club_id", clubId).eq("display_name", name).eq("last_name", "Seed");
+    }
     const { data: ps } = await db.from("players").select("id, display_name, current_rating").eq("club_id", clubId).eq("last_name", "Seed");
     for (const p of ps ?? []) players.set(p.display_name, { id: p.id, rating: p.current_rating });
     expect(players.size).toBe(6);

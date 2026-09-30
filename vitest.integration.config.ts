@@ -13,6 +13,7 @@ try {
 export default defineConfig({
   test: {
     include: ["src/**/*.integration.test.ts"],
+    fileParallelism: false, // tests share the same seed players
     testTimeout: 30_000,
     hookTimeout: 30_000,
   },

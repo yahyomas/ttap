@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireMember } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
@@ -37,6 +38,9 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
           </div>
         </div>
         <div className="text-right">
+          {ctx.player && ctx.player.id !== player.id && player.status === "ACTIVE" && (
+            <Link href={`/challenges/new?opponent=${player.id}`} className="btn-primary mb-2 inline-flex">Бросить вызов</Link>
+          )}
           <div className="text-sm text-muted">Club Rating</div>
           <div className="text-3xl font-semibold"><Rating value={player.current_rating} /></div>
           {rank?.rank && <div className="text-sm text-muted">#{rank.rank} в клубе</div>}

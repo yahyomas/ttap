@@ -6,6 +6,7 @@ const ADMIN_NAV = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/players", label: "Игроки" },
   { href: "/admin/tournaments", label: "Турниры" },
+  { href: "/admin/challenges", label: "Челленджи" },
   { href: "/admin/audit", label: "Audit Log" },
 ];
 

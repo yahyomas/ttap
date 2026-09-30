@@ -51,8 +51,9 @@ Dashboard → Authentication → URL Configuration:
 
 ## Тестовые данные
 
-`supabase/seed/smoke.sql` (SQL Editor) создаёт админа `smoke-admin@test.local` / `smoke-test-2026` и 6 игроков
-с разными рейтингами. Нужен для `npm run test:integration` и ручной проверки турниров.
+`supabase/seed/smoke.sql` (SQL Editor) создаёт админа `smoke-admin@test.local`, игроков `smoke-timur@`, `smoke-dima@`,
+`smoke-aziz@test.local` (пароль у всех `smoke-test-2026`) и 6 seed-игроков. Нужен для `npm run test:integration`
+и ручной проверки турниров и челленджей (откройте два браузера под разными игроками).
 
 ## Ключевые решения (см. спеку и `src/domain/rating`)
 
@@ -63,12 +64,14 @@ Dashboard → Authentication → URL Configuration:
 - Все правила rating engine — в `clubs.settings.rating`, дефолты в `src/domain/rating/config.ts`.
 - **Турниры:** дельты считаются от рейтингов, зафиксированных при формировании сетки (`rating_at_lock`), — результат не зависит от порядка ввода. Матч с игроком `NEW` — без рейтинга для обеих сторон; новичок получает стартовый рейтинг при завершении турнира (`NEWCOMER_INITIAL`: среднее соперников ± 25 за победу/поражение, шаг 25, мин. 100). Формула живёт в TS; RPC получает готовые дельты, сверяет `rating_before` с текущей проекцией и применяет всё в одной транзакции.
 - Исправление результата (§45) возможно, пока следующий матч не сыгран: REVERSAL-транзакции + новые. Полный пересчёт турнира — в бэклоге.
+- **Челленджи:** один открытый вызов на пару игроков; непринятый вызов истекает в назначенное время (pg_cron, каждые 15 мин). Результат вносит любой из двоих, второй подтверждает или отклоняет с комментарием. Через `settings.challenges.confirm_hours` (48) внёсший может подтвердить сам; админ — всегда. Рейтинг — от текущих рейтингов с `challenge_k`. Матч с `NEW` — без рейтинга.
+- **Уведомления** пишутся в `notifications` внутри той же транзакции, что и событие (outbox). Telegram-доставка (Phase 5) будет читать `telegram_sent_at is null`.
 
 ## Фазы
 
 - [x] Phase 1 — Foundation: схема, auth, онбординг, одобрение, профили, игроки
 - [x] Phase 2 (ядро) — rating engine + тесты, внешние рейтинги, ручные корректировки, история, лидерборд
 - [x] Phase 3 — Tournaments: single elimination, посев, byes, снапшот рейтингов при lock, ввод/исправление результатов, завершение, стартовый рейтинг новичков
-- [ ] Phase 4 — Challenges & match confirmation
+- [x] Phase 4 — Challenges: вызов → принятие → ввод счёта → подтверждение соперником (или отклонение, или по таймауту), рейтинг; in-app уведомления (outbox для Telegram)
 - [ ] Phase 5 — Telegram bot (linking, notifications via outbox, actions)
 - [ ] Phase 6 — Analytics & polish

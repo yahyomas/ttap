@@ -49,6 +49,7 @@ export default async function PlayersPage({
               <th className="px-5 py-3">Статус</th>
               <th className="px-5 py-3">Рука</th>
               <th className="px-5 py-3 text-right">Турниров</th>
+              <th className="px-5 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -61,10 +62,15 @@ export default async function PlayersPage({
                 <td className="px-5 py-3"><RatingStatusBadge value={p.rating_status} /></td>
                 <td className="px-5 py-3 text-muted"><Hand value={p.playing_hand} /></td>
                 <td className="px-5 py-3 text-right tabular-nums">{p.tournament_count}</td>
+                <td className="px-5 py-3 text-right">
+                  {ctx.player && p.id !== ctx.player.id && (
+                    <Link href={`/challenges/new?opponent=${p.id}`} className="text-xs text-accent hover:underline">Вызвать</Link>
+                  )}
+                </td>
               </tr>
             ))}
             {(players ?? []).length === 0 && (
-              <tr><td colSpan={5} className="px-5 py-6 text-center text-muted">Никого не найдено</td></tr>
+              <tr><td colSpan={6} className="px-5 py-6 text-center text-muted">Никого не найдено</td></tr>
             )}
           </tbody>
         </table>
