@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/auth", "/leaderboard"];
+// /api/* routes authenticate themselves (webhook secret, cron bearer) — never redirect them.
+const PUBLIC_PATHS = ["/login", "/signup", "/auth", "/leaderboard", "/api"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
