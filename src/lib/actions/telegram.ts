@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireMember } from "@/lib/session";
 import { botUsername } from "@/lib/telegram";
+import { queueDispatch } from "@/lib/telegram/queue";
 
 export type LinkState = { link?: string; error?: string };
 
@@ -36,4 +37,21 @@ export async function updateNotificationPrefs(formData: FormData) {
   const db = await createClient();
   await db.from("users").update({ notification_prefs: prefs }).eq("id", ctx.userId!);
   revalidatePath("/profile");
+}
+
+export type CodeState = { error?: string; ok?: boolean };
+
+/** Links the account using the 6-digit code the bot showed (reverse flow). */
+export async function claimTelegramCode(_prev: CodeState, formData: FormData): Promise<CodeState> {
+  await requireMember();
+  const code = String(formData.get("code") ?? "").replace(/\D/g, "");
+  if (code.length !== 6) return { error: "Код — 6 цифр" };
+  const db = await createClient();
+  const { data, error } = await db.rpc("claim_telegram_code", { p_code: code });
+  if (error) return { error: error.message };
+  const r = data as { ok: boolean; error?: string };
+  if (!r.ok) return { error: "Код не подходит или устарел. Напишите боту ещё раз — он выдаст новый." };
+  queueDispatch();
+  revalidatePath("/profile");
+  return { ok: true };
 }

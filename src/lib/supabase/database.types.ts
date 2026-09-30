@@ -1180,7 +1180,12 @@ export type Database = {
         Args: { p_challenge_id: string; p_loser_sets: number; p_winner_id: string; p_winner_sets: number }
         Returns: string
       }
+      claim_telegram_code: { Args: { p_code: string }; Returns: Json }
       create_telegram_link_token: { Args: never; Returns: string }
+      tg_issue_code: {
+        Args: { p_chat_id: number; p_first_name?: string; p_telegram_id: number; p_username?: string }
+        Returns: string
+      }
       tg_act: {
         Args: { p_action: string; p_args?: Json; p_telegram_id: number }
         Returns: Json

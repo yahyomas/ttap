@@ -49,15 +49,44 @@ export function createBot(token: string, deps: BotDeps) {
     return data as unknown as { ok: boolean; error?: string };
   }
 
-  const notLinked = (ctx: Context) =>
-    ctx.reply(
-      `Аккаунт не привязан.\n\nОткройте профиль на сайте и нажмите «Привязать Telegram»:\n${appUrl}/profile`,
-      { link_preview_options: { is_disabled: true } },
-    );
-
   const menu = new InlineKeyboard()
     .text("📊 Рейтинг", "m:rating").text("👤 Профиль", "m:profile").row()
     .text("⚔️ Челленджи", "m:challenges").text("🏆 Турниры", "m:tournaments");
+
+  /**
+   * First contact: the user must authenticate. Two ways, both shown:
+   *  1) a 6-digit code to enter on the website (Профиль → Telegram), valid 15 minutes;
+   *  2) the deep link generated on the website (handled by /start <token>).
+   */
+  async function notLinked(ctx: Context) {
+    const { data: code, error } = await db.rpc("tg_issue_code", {
+      p_telegram_id: ctx.from!.id,
+      p_chat_id: ctx.chat?.id ?? ctx.from!.id,
+      p_username: ctx.from?.username ?? undefined,
+      p_first_name: ctx.from?.first_name ?? undefined,
+    });
+    const kb = new InlineKeyboard().url("Открыть сайт", `${appUrl}/profile`).row().text("🔄 Новый код", "link:code");
+    const text = error
+      ? `Чтобы пользоваться ботом, привяжите аккаунт: сайт → Профиль → «Привязать Telegram».`
+      : [
+          `👋 Привет${ctx.from?.first_name ? ", " + esc(ctx.from.first_name) : ""}! Это бот клуба.`,
+          ``,
+          `Чтобы пользоваться им, войдите в свой аккаунт на сайте и введите код:`,
+          ``,
+          `<code>${code}</code>`,
+          ``,
+          `Сайт → <b>Профиль</b> → <b>Telegram</b> → «Ввести код из бота». Код действует 15 минут.`,
+          `Ещё нет аккаунта? Зарегистрируйтесь на сайте, дождитесь одобрения администратора и вернитесь сюда.`,
+        ].join("\n");
+    await ctx.reply(text, { parse_mode: "HTML", reply_markup: kb, link_preview_options: { is_disabled: true } });
+  }
+
+  bot.callbackQuery("link:code", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const c = await context(ctx);
+    if (c.linked) return ctx.reply("Аккаунт уже привязан ✅", { reply_markup: menu });
+    await notLinked(ctx);
+  });
 
   // ---------- /start [token] ----------
   bot.command("start", async (ctx) => {
@@ -232,7 +261,18 @@ export function createBot(token: string, deps: BotDeps) {
     await ctx.editMessageReplyMarkup({ reply_markup: kb }).catch(() => {});
   });
 
-  bot.on("message:text", (ctx) => ctx.reply("Не понял. Команды: /rating /profile /challenges /tournaments", { reply_markup: menu }));
+  bot.on("message:text", async (ctx) => {
+    const c = await context(ctx);
+    if (!c.linked) return notLinked(ctx);
+    return ctx.reply("Не понял. Команды: /rating /profile /challenges /tournaments", { reply_markup: menu });
+  });
+
+  // any callback from an unlinked user (e.g. old buttons) → onboarding
+  bot.on("callback_query:data", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const c = await context(ctx);
+    if (!c.linked) return notLinked(ctx);
+  });
 
   bot.catch((err) => {
     console.error("[telegram] handler error", err.error);

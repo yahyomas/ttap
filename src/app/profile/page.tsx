@@ -45,7 +45,7 @@ export default async function ProfilePage() {
               </ul>
             )}
           </div>
-          <TelegramCard linked={tg ?? null} />
+          <TelegramCard linked={tg ?? null} botUsername={process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? ""} />
           <form action={updateNotificationPrefs} className="card space-y-2">
             <div className="mb-1 text-sm font-medium">Уведомления</div>
             {([["challenge", "Вызовы"], ["tournament", "Турниры"], ["match", "Результаты матчей"], ["rating", "Изменения рейтинга"]] as const).map(([k, label]) => (
