@@ -4,14 +4,18 @@
  * Same instance serves the webhook route and the local long-polling script.
  */
 import { Bot, InlineKeyboard, type Context } from "grammy";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { startFlow, step, type DialogState, type Prompt } from "./dialogs";
 import type { Database, Json } from "@/lib/supabase/database.types";
 
 type DB = SupabaseClient<Database>;
 
 export type BotDeps = {
-  db: DB;
-  appUrl: string; // e.g. https://ttap.vercel.app
+  db: DB;                // service-role client
+  appUrl: string;        // e.g. https://ttap.vercel.app
+  supabaseUrl: string;
+  anonKey: string;       // for password verification (signInWithPassword)
+  clubSlug: string;
 };
 
 type PlayerCtx = {
@@ -33,7 +37,7 @@ const STATUS_RU: Record<string, string> = { NEW: "новичок", PROVISIONAL: 
 
 export function createBot(token: string, deps: BotDeps) {
   const bot = new Bot(token);
-  const { db, appUrl } = deps;
+  const { db, appUrl, supabaseUrl, anonKey, clubSlug } = deps;
 
   async function context(ctx: Context): Promise<PlayerCtx> {
     const id = ctx.from?.id;
@@ -59,33 +63,137 @@ export function createBot(token: string, deps: BotDeps) {
    *  2) the deep link generated on the website (handled by /start <token>).
    */
   async function notLinked(ctx: Context) {
+    const kb = new InlineKeyboard()
+      .text("🔑 Войти", "auth:login").text("📝 Зарегистрироваться", "auth:register").row()
+      .text("🔢 Код для сайта", "link:code");
+    const text = [
+      `👋 Привет${ctx.from?.first_name ? ", " + esc(ctx.from.first_name) : ""}! Это бот клуба.`,
+      ``,
+      `Уже есть аккаунт на сайте — нажмите <b>Войти</b>. Нет — <b>Зарегистрироваться</b>, займёт минуту.`,
+      `Либо получите код и введите его на сайте: Профиль → Telegram.`,
+    ].join("\n");
+    await ctx.reply(text, { parse_mode: "HTML", reply_markup: kb, link_preview_options: { is_disabled: true } });
+  }
+
+  async function showCode(ctx: Context) {
     const { data: code, error } = await db.rpc("tg_issue_code", {
       p_telegram_id: ctx.from!.id,
       p_chat_id: ctx.chat?.id ?? ctx.from!.id,
       p_username: ctx.from?.username ?? undefined,
       p_first_name: ctx.from?.first_name ?? undefined,
     });
-    const kb = new InlineKeyboard().url("Открыть сайт", `${appUrl}/profile`).row().text("🔄 Новый код", "link:code");
-    const text = error
-      ? `Чтобы пользоваться ботом, привяжите аккаунт: сайт → Профиль → «Привязать Telegram».`
-      : [
-          `👋 Привет${ctx.from?.first_name ? ", " + esc(ctx.from.first_name) : ""}! Это бот клуба.`,
-          ``,
-          `Чтобы пользоваться им, войдите в свой аккаунт на сайте и введите код:`,
-          ``,
-          `<code>${code}</code>`,
-          ``,
-          `Сайт → <b>Профиль</b> → <b>Telegram</b> → «Ввести код из бота». Код действует 15 минут.`,
-          `Ещё нет аккаунта? Зарегистрируйтесь на сайте, дождитесь одобрения администратора и вернитесь сюда.`,
-        ].join("\n");
-    await ctx.reply(text, { parse_mode: "HTML", reply_markup: kb, link_preview_options: { is_disabled: true } });
+    if (error) return ctx.reply("Не удалось выдать код, попробуйте позже.");
+    await ctx.reply(
+      `Ваш код: <code>${code}</code>\n\nСайт → <b>Профиль</b> → <b>Telegram</b> → «Привязать». Действует 15 минут.`,
+      { parse_mode: "HTML", reply_markup: new InlineKeyboard().url("Открыть сайт", `${appUrl}/profile`).row().text("🔄 Новый код", "link:code"), link_preview_options: { is_disabled: true } },
+    );
   }
+
+  // ---------- dialogs: /login and /register (state in telegram_dialogs) ----------
+  async function loadDialog(id: number): Promise<DialogState | null> {
+    const { data } = await db.from("telegram_dialogs").select("flow, step, data").eq("telegram_id", id).maybeSingle();
+    return data ? ({ flow: data.flow as DialogState["flow"], step: data.step, data: (data.data ?? {}) as Record<string, string> }) : null;
+  }
+  async function saveDialog(id: number, st: DialogState) {
+    await db.from("telegram_dialogs").upsert({ telegram_id: id, flow: st.flow, step: st.step, data: st.data, updated_at: new Date().toISOString() });
+  }
+  async function clearDialog(id: number) {
+    await db.from("telegram_dialogs").delete().eq("telegram_id", id);
+  }
+  function kbFrom(p: Prompt) {
+    if (!p.buttons?.length) return undefined;
+    const kb = new InlineKeyboard();
+    for (const [label, data] of p.buttons) kb.text(label, data).row();
+    return kb;
+  }
+
+  async function beginFlow(ctx: Context, flow: DialogState["flow"]) {
+    const c = await context(ctx);
+    if (c.linked) return ctx.reply(`Вы уже вошли как ${esc(c.player?.display_name ?? "")} ✅`, { parse_mode: "HTML", reply_markup: menu });
+    const r = startFlow(flow);
+    if (r.kind !== "prompt") return;
+    await saveDialog(ctx.from!.id, r.state);
+    await ctx.reply(r.prompt.text, { reply_markup: kbFrom(r.prompt) });
+  }
+
+  async function finishLogin(ctx: Context, data: Record<string, string>) {
+    const auth = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: signIn, error } = await auth.auth.signInWithPassword({ email: data.email, password: data.password });
+    if (error || !signIn.user) {
+      await ctx.reply("Неверный email или пароль. Попробовать снова — /login", { reply_markup: new InlineKeyboard().text("🔑 Войти", "auth:login").text("📝 Регистрация", "auth:register") });
+      return;
+    }
+    await auth.auth.signOut().catch(() => {});
+    const { data: res, error: linkErr } = await db.rpc("tg_link_user", {
+      p_user_id: signIn.user.id, p_telegram_id: ctx.from!.id, p_chat_id: ctx.chat?.id ?? ctx.from!.id,
+      p_username: ctx.from?.username ?? undefined, p_tg_first_name: ctx.from?.first_name ?? undefined,
+    });
+    const rr = res as unknown as { ok: boolean; display_name?: string; status?: string } | null;
+    if (linkErr || !rr?.ok) return ctx.reply("Не удалось привязать аккаунт. Напишите администратору.");
+    if (!rr.display_name) {
+      return ctx.reply("✅ Вход выполнен. Игрового профиля пока нет — заполните его на сайте.", { reply_markup: new InlineKeyboard().url("Открыть сайт", `${appUrl}/onboarding`) });
+    }
+    if (rr.status === "PENDING") return ctx.reply(`✅ Вход выполнен, ${esc(rr.display_name)}. Профиль ждёт одобрения администратора — как только одобрят, придёт сообщение.`, { parse_mode: "HTML" });
+    await ctx.reply(`✅ Вход выполнен, ${esc(rr.display_name)}! Теперь сюда будут приходить вызовы и новости турниров.`, { parse_mode: "HTML", reply_markup: menu });
+  }
+
+  async function finishRegister(ctx: Context, data: Record<string, string>) {
+    const { data: created, error } = await db.auth.admin.createUser({ email: data.email, password: data.password, email_confirm: true });
+    if (error || !created.user) {
+      const exists = /already|registered|exists/i.test(error?.message ?? "");
+      await ctx.reply(exists ? "Такой email уже зарегистрирован. Нажмите «Войти»." : `Не удалось создать аккаунт: ${error?.message ?? "ошибка"}`,
+        { reply_markup: new InlineKeyboard().text("🔑 Войти", "auth:login") });
+      return;
+    }
+    const { data: res, error: regErr } = await db.rpc("tg_register", {
+      p_user_id: created.user.id, p_club_slug: clubSlug,
+      p_first_name: data.first_name, p_last_name: data.last_name, p_display_name: data.display_name, p_birth_date: data.birth_date,
+      p_gender: data.gender as "MALE" | "FEMALE", p_playing_hand: data.playing_hand as "RIGHT" | "LEFT",
+      p_rttf_rating: data.rttf_rating ? Number(data.rttf_rating) : undefined,
+      p_telegram_id: ctx.from!.id, p_chat_id: ctx.chat?.id ?? ctx.from!.id,
+      p_username: ctx.from?.username ?? undefined, p_tg_first_name: ctx.from?.first_name ?? undefined,
+    });
+    const rr = res as unknown as { ok: boolean; error?: string } | null;
+    if (regErr || !rr?.ok) return ctx.reply(`Аккаунт создан, но профиль не сохранился: ${regErr?.message ?? rr?.error}. Напишите администратору.`);
+    await ctx.reply(
+      [`🎉 Готово, ${esc(data.display_name)}! Заявка отправлена.`, ``,
+       `Администратор клуба одобрит профиль — вам придёт сообщение сюда. После этого откроются рейтинг, вызовы и турниры.`,
+       ``, `Вход на сайт: ${data.email} + ваш пароль.`].join("\n"),
+      { parse_mode: "HTML", reply_markup: new InlineKeyboard().url("Открыть сайт", `${appUrl}/login`), link_preview_options: { is_disabled: true } },
+    );
+  }
+
+  /** Returns true if the input was consumed by an active dialog. */
+  async function handleDialog(ctx: Context, input: string, isCallback: boolean): Promise<boolean> {
+    const id = ctx.from!.id;
+    const st = await loadDialog(id);
+    if (!st) return false;
+    const r = step(st, input);
+    const del = (r.kind === "prompt" && r.prompt.deleteInput) || (r.kind === "done" && r.deleteInput);
+    if (del && !isCallback && ctx.message) await ctx.api.deleteMessage(ctx.chat!.id, ctx.message.message_id).catch(() => {});
+    if (r.kind === "cancelled") { await clearDialog(id); await ctx.reply(r.prompt.text, { reply_markup: new InlineKeyboard().text("🔑 Войти", "auth:login").text("📝 Регистрация", "auth:register") }); return true; }
+    if (r.kind === "prompt") { await saveDialog(id, r.state); await ctx.reply(r.prompt.text, { reply_markup: kbFrom(r.prompt) }); return true; }
+    await clearDialog(id);
+    if (r.flow === "login") await finishLogin(ctx, r.data); else await finishRegister(ctx, r.data);
+    return true;
+  }
+
+  bot.command("login", (ctx) => beginFlow(ctx, "login"));
+  bot.command("register", (ctx) => beginFlow(ctx, "register"));
+  bot.command("cancel", async (ctx) => { await clearDialog(ctx.from!.id); await ctx.reply("Отменено."); });
+  bot.callbackQuery("auth:login", async (ctx) => { await ctx.answerCallbackQuery(); await beginFlow(ctx, "login"); });
+  bot.callbackQuery("auth:register", async (ctx) => { await ctx.answerCallbackQuery(); await beginFlow(ctx, "register"); });
+  bot.callbackQuery(/^dlg:/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
+    if (!(await handleDialog(ctx, ctx.callbackQuery.data, true))) await notLinked(ctx);
+  });
 
   bot.callbackQuery("link:code", async (ctx) => {
     await ctx.answerCallbackQuery();
     const c = await context(ctx);
     if (c.linked) return ctx.reply("Аккаунт уже привязан ✅", { reply_markup: menu });
-    await notLinked(ctx);
+    await showCode(ctx);
   });
 
   // ---------- /start [token] ----------
@@ -105,13 +213,14 @@ export function createBot(token: string, deps: BotDeps) {
       }
       return ctx.reply(`✅ Готово, ${esc(res.display_name ?? "")}! Telegram привязан.\n\nТеперь сюда будут приходить вызовы, результаты и новости турниров.`, { reply_markup: menu, parse_mode: "HTML" });
     }
+    await clearDialog(ctx.from!.id);
     const c = await context(ctx);
     if (!c.linked) return notLinked(ctx);
     return ctx.reply(`Привет, ${esc(c.player?.display_name ?? "")}! Что посмотрим?`, { reply_markup: menu, parse_mode: "HTML" });
   });
 
   bot.command("help", (ctx) =>
-    ctx.reply(["/rating — мой рейтинг и топ клуба", "/profile — профиль и статистика", "/challenges — вызовы", "/tournaments — ближайшие турниры", "/start — меню"].join("\n")),
+    ctx.reply(["/login — войти в аккаунт", "/register — регистрация в клубе", "/rating — мой рейтинг и топ клуба", "/profile — профиль и статистика", "/challenges — вызовы", "/tournaments — ближайшие турниры", "/start — меню"].join("\n")),
   );
 
   // ---------- rating ----------
@@ -262,6 +371,7 @@ export function createBot(token: string, deps: BotDeps) {
   });
 
   bot.on("message:text", async (ctx) => {
+    if (await handleDialog(ctx, ctx.message.text, false)) return;
     const c = await context(ctx);
     if (!c.linked) return notLinked(ctx);
     return ctx.reply("Не понял. Команды: /rating /profile /challenges /tournaments", { reply_markup: menu });

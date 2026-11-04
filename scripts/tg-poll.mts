@@ -17,10 +17,17 @@ const { InlineKeyboard } = await import("grammy");
 
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
-const bot = createBot(process.env.TELEGRAM_BOT_TOKEN!, { db, appUrl });
+const bot = createBot(process.env.TELEGRAM_BOT_TOKEN!, {
+  db, appUrl,
+  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  clubSlug: process.env.NEXT_PUBLIC_CLUB_SLUG ?? "tt-club",
+});
 
 await bot.api.deleteWebhook();
 await bot.api.setMyCommands([
+  { command: "login", description: "Войти в аккаунт" },
+  { command: "register", description: "Регистрация в клубе" },
   { command: "rating", description: "Мой рейтинг и топ клуба" },
   { command: "profile", description: "Профиль и статистика" },
   { command: "challenges", description: "Вызовы" },

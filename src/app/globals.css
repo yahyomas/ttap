@@ -61,3 +61,14 @@ body {
 .badge {
   @apply inline-block rounded-full px-2 py-0.5 text-xs font-medium;
 }
+
+/* route progress bar: grows to ~90% while a navigation is pending */
+@keyframes route-progress {
+  0% { transform: scaleX(0); }
+  60% { transform: scaleX(0.7); }
+  100% { transform: scaleX(0.92); }
+}
+.animate-route-progress {
+  transform-origin: left;
+  animation: route-progress 6s cubic-bezier(0.1, 0.7, 0.3, 1) forwards;
+}

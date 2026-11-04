@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { NavLink } from "./NavLink";
+import { RouteProgress } from "./RouteProgress";
 import { signOut } from "@/lib/actions/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { SessionContext } from "@/lib/session";
@@ -22,15 +24,14 @@ export async function AppShell({ ctx, children }: { ctx: SessionContext; childre
 
   return (
     <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-4">
+      <RouteProgress />
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border py-4">
         <Link href="/" className="text-lg font-semibold">
           🏓 {ctx.club.name}
         </Link>
         <nav className="flex flex-wrap items-center gap-1 text-sm">
           {NAV.map((n) => (
-            <Link key={n.href} href={n.href} className="rounded-lg px-3 py-1.5 hover:bg-border/40">
-              {n.label}
-            </Link>
+            <NavLink key={n.href} href={n.href}>{n.label}</NavLink>
           ))}
           {ctx.userId && (
             <Link href="/notifications" className="relative rounded-lg px-3 py-1.5 hover:bg-border/40" aria-label="Уведомления">
@@ -41,9 +42,7 @@ export async function AppShell({ ctx, children }: { ctx: SessionContext; childre
             </Link>
           )}
           {ctx.isAdmin && (
-            <Link href="/admin" className="rounded-lg px-3 py-1.5 font-medium text-accent hover:bg-border/40">
-              Админка
-            </Link>
+            <NavLink href="/admin" className="font-medium text-accent">Админка</NavLink>
           )}
           {ctx.userId && (
             <form action={signOut}>

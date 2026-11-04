@@ -28,6 +28,8 @@ console.log(await res.json());
 await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
   method: "POST", headers: { "content-type": "application/json" },
   body: JSON.stringify({ commands: [
+    { command: "login", description: "Войти в аккаунт" },
+    { command: "register", description: "Регистрация в клубе" },
     { command: "rating", description: "Мой рейтинг и топ клуба" },
     { command: "profile", description: "Профиль и статистика" },
     { command: "challenges", description: "Вызовы" },

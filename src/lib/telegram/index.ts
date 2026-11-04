@@ -12,7 +12,13 @@ export function getBot() {
   if (cached) return cached;
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) throw new Error("TELEGRAM_BOT_TOKEN is not set");
-  cached = createBot(token, { db: createAdminClient(), appUrl: appUrl() });
+  cached = createBot(token, {
+    db: createAdminClient(),
+    appUrl: appUrl(),
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    clubSlug: process.env.NEXT_PUBLIC_CLUB_SLUG ?? "tt-club",
+  });
   return cached;
 }
 
