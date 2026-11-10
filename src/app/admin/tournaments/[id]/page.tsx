@@ -7,7 +7,7 @@ import { BracketView } from "@/components/tournament/BracketView";
 import { TournamentStatusBadge, fmtDate } from "@/components/tournament/TournamentCard";
 import { loadTournamentDetail } from "@/lib/queries/tournaments";
 import { removeParticipant, setTournamentStatus } from "@/lib/actions/tournaments";
-import { LockBracketButton, CompleteTournamentButton } from "./Controls";
+import { AddParticipantForm, LockBracketButton, CompleteTournamentButton } from "./Controls";
 
 export default async function AdminTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const ctx = await requireAdmin();
@@ -28,6 +28,20 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
     .eq("tournament_id", t.id);
   const deltaBy = new Map<string, number>();
   for (const x of txs ?? []) deltaBy.set(x.player_id, (deltaBy.get(x.player_id) ?? 0) + x.rating_delta);
+
+  const canAdd = t.status === "DRAFT" || t.status === "REGISTRATION_OPEN" || t.status === "REGISTRATION_CLOSED";
+  let addable: { id: string; display_name: string; current_rating: number | null }[] = [];
+  if (canAdd) {
+    const registeredIds = new Set(registered.map((p) => p.player_id));
+    const { data: active } = await db
+      .from("players")
+      .select("id, display_name, current_rating")
+      .eq("club_id", ctx.club.id)
+      .eq("status", "ACTIVE")
+      .is("deleted_at", null)
+      .order("display_name");
+    addable = (active ?? []).filter((p) => !registeredIds.has(p.id));
+  }
 
   return (
     <>
@@ -83,6 +97,12 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
 
       <section>
         <h2 className="mb-3 text-lg font-semibold">Участники</h2>
+        {canAdd && (
+          <div className="card mb-4">
+            <div className="mb-2 text-sm font-medium">Добавить игрока</div>
+            <AddParticipantForm tournamentId={t.id} players={addable} />
+          </div>
+        )}
         {participants.length === 0 ? (
           <div className="card text-sm text-muted">Пока никто не зарегистрировался.</div>
         ) : (

@@ -1084,6 +1084,10 @@ export type Database = {
         }
         Returns: string
       }
+      admin_add_participant: {
+        Args: { p_player_id: string; p_tournament_id: string }
+        Returns: string
+      }
       admin_adjust_rating: {
         Args: { p_new_rating: number; p_player_id: string; p_reason: string }
         Returns: string

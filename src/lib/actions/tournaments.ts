@@ -125,6 +125,16 @@ export async function setTournamentStatus(
   revalidateTournament(tournamentId);
 }
 
+export async function addParticipant(tournamentId: string, playerId: string): Promise<ActionState> {
+  await requireAdmin();
+  if (!playerId) return { error: "Выберите игрока" };
+  const db = await createClient();
+  const { error } = await db.rpc("admin_add_participant", { p_tournament_id: tournamentId, p_player_id: playerId });
+  if (error) return { error: error.message };
+  revalidateTournament(tournamentId);
+  return { ok: true };
+}
+
 export async function removeParticipant(participantId: string, tournamentId: string) {
   await requireAdmin();
   const db = await createClient();
