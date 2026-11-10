@@ -77,7 +77,7 @@ export function BracketView({
         {Array.from({ length: rounds }, (_, i) => i + 1).map((r) => {
           const ms = byRound.get(r) ?? [];
           return (
-            <div key={r} className="flex w-60 flex-col">
+            <div key={r} className="flex w-64 flex-col">
               <div className="mb-2 text-xs font-semibold uppercase text-muted">{roundLabel(r, rounds)}</div>
               <div className="flex flex-1 flex-col justify-around gap-3">
                 {ms.map((m) => {
