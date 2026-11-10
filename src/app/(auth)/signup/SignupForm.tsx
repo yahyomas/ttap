@@ -17,13 +17,8 @@ export function SignupForm() {
         <input id="password" name="password" type="password" required minLength={8} autoComplete="new-password" className="input" />
       </div>
       <ErrorBox message={state.error} />
-      {state.message && (
-        <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600">
-          {state.message}
-        </div>
-      )}
       <button className="btn-primary w-full" disabled={pending}>
-        {pending ? "Создаём…" : "Продолжить"}
+        {pending ? "Создаём…" : "Продолжить к анкете →"}
       </button>
     </form>
   );
