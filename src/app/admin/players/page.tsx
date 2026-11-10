@@ -30,7 +30,10 @@ export default async function AdminPlayersPage({
 
   return (
     <>
-      <PageTitle>Игроки</PageTitle>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <PageTitle>Игроки</PageTitle>
+        <Link href="/admin/players/new" className="btn-primary shrink-0">+ Добавить игрока</Link>
+      </div>
       <form className="mb-4 flex flex-wrap gap-2">
         <input name="q" defaultValue={q} placeholder="Поиск" className="input max-w-xs" />
         <select name="status" defaultValue={status} className="input max-w-[180px]">

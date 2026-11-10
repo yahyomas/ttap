@@ -797,12 +797,6 @@ export type Database = {
         }
         Relationships: []
       }
-      telegram_dialogs: {
-        Row: { data: Json; flow: string; step: string; telegram_id: number; updated_at: string }
-        Insert: { data?: Json; flow: string; step: string; telegram_id: number; updated_at?: string }
-        Update: { data?: Json; flow?: string; step?: string; telegram_id?: number; updated_at?: string }
-        Relationships: []
-      }
       telegram_link_tokens: {
         Row: { expires_at: string; token: string; used_at: string | null; user_id: string }
         Insert: { expires_at: string; token: string; used_at?: string | null; user_id: string }
@@ -1076,6 +1070,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_create_player: {
+        Args: {
+          p_birth_date?: string; p_club_slug: string; p_display_name: string; p_first_name: string
+          p_gender?: Database["public"]["Enums"]["gender"]; p_last_name: string; p_playing_hand: Database["public"]["Enums"]["playing_hand"]
+          p_rttf_rating?: number; p_rttf_verified?: boolean; p_user_id?: string
+        }
+        Returns: string
+      }
       admin_adjust_rating: {
         Args: { p_new_rating: number; p_player_id: string; p_reason: string }
         Returns: string
@@ -1197,18 +1199,6 @@ export type Database = {
         Returns: Json
       }
       tg_context: { Args: { p_telegram_id: number }; Returns: Json }
-      tg_link_user: {
-        Args: { p_chat_id: number; p_telegram_id: number; p_tg_first_name?: string; p_user_id: string; p_username?: string }
-        Returns: Json
-      }
-      tg_register: {
-        Args: {
-          p_birth_date: string; p_chat_id: number; p_club_slug: string; p_display_name: string; p_first_name: string
-          p_gender: Database["public"]["Enums"]["gender"]; p_last_name: string; p_playing_hand: Database["public"]["Enums"]["playing_hand"]
-          p_rttf_rating?: number; p_telegram_id: number; p_tg_first_name?: string; p_user_id: string; p_username?: string
-        }
-        Returns: Json
-      }
       tg_link: {
         Args: { p_chat_id: number; p_first_name?: string; p_telegram_id: number; p_token: string; p_username?: string }
         Returns: Json
