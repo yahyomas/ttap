@@ -4,7 +4,7 @@ import { requireMember } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
 import { Rating, RatingStatusBadge } from "@/components/ui";
-import { BracketView } from "@/components/tournament/BracketView";
+import { BracketView, buildMatchDeltas } from "@/components/tournament/BracketView";
 import { TournamentStatusBadge, fmtDate } from "@/components/tournament/TournamentCard";
 import { loadTournamentDetail } from "@/lib/queries/tournaments";
 import { registerForTournament, withdrawFromTournament } from "@/lib/actions/tournaments";
@@ -27,8 +27,9 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
 
   // rating impact for completed tournaments
   const { data: impact } = t.status === "COMPLETED"
-    ? await db.from("rating_transactions").select("player_id, rating_delta, reason").eq("tournament_id", t.id)
-    : { data: [] as { player_id: string; rating_delta: number; reason: string }[] };
+    ? await db.from("rating_transactions").select("player_id, rating_delta, reason, match_id").eq("tournament_id", t.id)
+    : { data: [] as { player_id: string; rating_delta: number; reason: string; match_id: string | null }[] };
+  const matchDeltas = buildMatchDeltas(impact ?? []);
   const deltaBy = new Map<string, number>();
   for (const x of impact ?? []) deltaBy.set(x.player_id, (deltaBy.get(x.player_id) ?? 0) + x.rating_delta);
 
@@ -70,7 +71,7 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
       {t.status === "IN_PROGRESS" || t.status === "COMPLETED" ? (
         <section className="mb-8">
           <h2 className="mb-3 text-lg font-semibold">Сетка</h2>
-          <BracketView matches={matches} rounds={rounds} names={names} tournamentId={t.id} />
+          <BracketView matches={matches} rounds={rounds} names={names} tournamentId={t.id} deltas={matchDeltas} />
         </section>
       ) : null}
 

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { Rating, RatingStatusBadge } from "@/components/ui";
-import { BracketView } from "@/components/tournament/BracketView";
+import { BracketView, buildMatchDeltas } from "@/components/tournament/BracketView";
 import { TournamentStatusBadge, fmtDate } from "@/components/tournament/TournamentCard";
 import { loadTournamentDetail } from "@/lib/queries/tournaments";
 import { removeParticipant, setTournamentStatus } from "@/lib/actions/tournaments";
@@ -24,8 +24,9 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
 
   const { data: txs } = await db
     .from("rating_transactions")
-    .select("player_id, rating_delta, reason")
+    .select("player_id, rating_delta, reason, match_id")
     .eq("tournament_id", t.id);
+  const matchDeltas = buildMatchDeltas(txs ?? []);
   const deltaBy = new Map<string, number>();
   for (const x of txs ?? []) deltaBy.set(x.player_id, (deltaBy.get(x.player_id) ?? 0) + x.rating_delta);
 
@@ -88,7 +89,7 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
             <h2 className="text-lg font-semibold">Сетка</h2>
             <span className="text-sm text-muted">{confirmed} сыграно · {pending} ожидает</span>
           </div>
-          <BracketView matches={matches} rounds={rounds} names={names} admin tournamentId={t.id} tournamentActive={t.status === "IN_PROGRESS"} />
+          <BracketView matches={matches} rounds={rounds} names={names} admin tournamentId={t.id} tournamentActive={t.status === "IN_PROGRESS"} deltas={matchDeltas} />
           <p className="mt-2 text-xs text-muted">
             Дельты считаются от рейтингов на момент фиксации сетки. Матч с новичком без рейтинга — без изменения рейтинга; новичок получит стартовый рейтинг при завершении турнира.
           </p>
