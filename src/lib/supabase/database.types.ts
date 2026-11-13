@@ -1097,7 +1097,7 @@ export type Database = {
         Returns: undefined
       }
       admin_complete_tournament: {
-        Args: { p_newcomers?: Json; p_tournament_id: string }
+        Args: { p_newcomers?: Json; p_places?: Json; p_tournament_id: string }
         Returns: undefined
       }
       admin_confirm_tournament_match: {
@@ -1283,7 +1283,7 @@ export type Database = {
         | "EXTERNAL_SEED"
         | "MANUAL_ADJUSTMENT"
         | "REVERSAL"
-      tournament_format: "SINGLE_ELIMINATION"
+      tournament_format: "SINGLE_ELIMINATION" | "ROUND_ROBIN"
       tournament_status:
         | "DRAFT"
         | "REGISTRATION_OPEN"

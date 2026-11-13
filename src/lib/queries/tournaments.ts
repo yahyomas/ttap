@@ -12,6 +12,11 @@ export const TOURNAMENT_STATUS_LABEL: Record<Enums<"tournament_status">, string>
   CANCELLED: "Отменён",
 };
 
+export const TOURNAMENT_FORMAT_LABEL: Record<Enums<"tournament_format">, string> = {
+  SINGLE_ELIMINATION: "Плей-офф",
+  ROUND_ROBIN: "Круговой",
+};
+
 export const TOURNAMENT_STATUS_CLASS: Record<Enums<"tournament_status">, string> = {
   DRAFT: "bg-gray-500/15 text-gray-500",
   REGISTRATION_OPEN: "bg-emerald-500/15 text-emerald-600",

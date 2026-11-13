@@ -4,6 +4,8 @@ import { requireAdmin } from "@/lib/session";
 import { createClient } from "@/lib/supabase/server";
 import { Rating, RatingStatusBadge } from "@/components/ui";
 import { BracketView, buildMatchDeltas } from "@/components/tournament/BracketView";
+import { RoundRobinMatches, StandingsTable } from "@/components/tournament/RoundRobinView";
+import { TOURNAMENT_FORMAT_LABEL } from "@/lib/queries/tournaments";
 import { TournamentStatusBadge, fmtDate } from "@/components/tournament/TournamentCard";
 import { loadTournamentDetail } from "@/lib/queries/tournaments";
 import { removeParticipant, setTournamentStatus } from "@/lib/actions/tournaments";
@@ -52,8 +54,9 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
           <div className="mt-1 text-sm text-muted">{fmtDate(t.starts_at, tz)}</div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
             <TournamentStatusBadge value={t.status} />
-            <span className="text-muted">{registered.length} участник(ов)</span>
-            {t.bracket_size && <span className="text-muted">· сетка на {t.bracket_size}</span>}
+            <span className="text-muted">{TOURNAMENT_FORMAT_LABEL[t.format]}</span>
+            <span className="text-muted">· {registered.length} участник(ов)</span>
+            {t.format === "SINGLE_ELIMINATION" && t.bracket_size && <span className="text-muted">· сетка на {t.bracket_size}</span>}
             {t.average_rating !== null && <span className="text-muted">· ср. рейтинг {Math.round(t.average_rating)} · k = {t.k}</span>}
             <Link href={`/tournaments/${t.id}`} className="text-accent underline">Публичная страница</Link>
           </div>
@@ -70,7 +73,7 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
             <form action={setTournamentStatus.bind(null, t.id, "REGISTRATION_OPEN")}><button className="btn-secondary">Открыть снова</button></form>
           )}
           {(t.status === "REGISTRATION_OPEN" || t.status === "REGISTRATION_CLOSED") && (
-            <LockBracketButton tournamentId={t.id} count={registered.length} />
+            <LockBracketButton tournamentId={t.id} count={registered.length} label={t.format === "ROUND_ROBIN" ? "Старт: составить расписание" : "Сформировать сетку"} />
           )}
           {t.status === "IN_PROGRESS" && (
             <CompleteTournamentButton tournamentId={t.id} disabled={!canComplete} pending={pending} />
@@ -83,7 +86,36 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
         </div>
       </div>
 
-      {(t.status === "IN_PROGRESS" || t.status === "COMPLETED") && (
+      {(t.status === "IN_PROGRESS" || t.status === "COMPLETED") && t.format === "ROUND_ROBIN" && (
+        <>
+          <section className="mb-8">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Таблица</h2>
+              <span className="text-sm text-muted">{confirmed} сыграно · {pending} ожидает</span>
+            </div>
+            <StandingsTable
+              playerIds={registered.map((p) => p.player_id)}
+              matches={matches}
+              seedOf={new Map(registered.map((p) => [p.player_id, p.seed ?? 999]))}
+              names={names}
+              linkBase="/admin/players"
+              final={t.status === "COMPLETED"}
+            />
+            <p className="mt-2 text-xs text-muted">
+              Очки: 2 за победу, 1 за поражение. При равенстве — личные встречи, затем соотношение сетов, затем посев.
+            </p>
+          </section>
+          <section className="mb-8">
+            <h2 className="mb-3 text-lg font-semibold">Матчи</h2>
+            <RoundRobinMatches matches={matches} rounds={rounds} names={names} admin tournamentId={t.id} tournamentActive={t.status === "IN_PROGRESS"} deltas={matchDeltas} />
+            <p className="mt-2 text-xs text-muted">
+              Дельты считаются от рейтингов на момент старта. Матч с новичком без рейтинга — без изменения рейтинга; новичок получит стартовый рейтинг при завершении турнира.
+            </p>
+          </section>
+        </>
+      )}
+
+      {(t.status === "IN_PROGRESS" || t.status === "COMPLETED") && t.format === "SINGLE_ELIMINATION" && (
         <section className="mb-8">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Сетка</h2>

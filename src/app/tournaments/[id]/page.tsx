@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
 import { Rating, RatingStatusBadge } from "@/components/ui";
 import { BracketView, buildMatchDeltas } from "@/components/tournament/BracketView";
+import { RoundRobinMatches, StandingsTable } from "@/components/tournament/RoundRobinView";
+import { TOURNAMENT_FORMAT_LABEL } from "@/lib/queries/tournaments";
 import { TournamentStatusBadge, fmtDate } from "@/components/tournament/TournamentCard";
 import { loadTournamentDetail } from "@/lib/queries/tournaments";
 import { registerForTournament, withdrawFromTournament } from "@/lib/actions/tournaments";
@@ -42,7 +44,8 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
           {t.description && <p className="mt-2 max-w-prose text-sm">{t.description}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
             <TournamentStatusBadge value={t.status} />
-            <span className="text-muted">{registered.length} участник(ов){t.max_participants ? ` из ${t.max_participants}` : ""}</span>
+            <span className="text-muted">{TOURNAMENT_FORMAT_LABEL[t.format]}</span>
+            <span className="text-muted">· {registered.length} участник(ов){t.max_participants ? ` из ${t.max_participants}` : ""}</span>
             {t.average_rating !== null && <span className="text-muted">· средний рейтинг {Math.round(t.average_rating)} · k = {t.k}</span>}
           </div>
         </div>
@@ -68,12 +71,31 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      {t.status === "IN_PROGRESS" || t.status === "COMPLETED" ? (
+      {(t.status === "IN_PROGRESS" || t.status === "COMPLETED") && t.format === "ROUND_ROBIN" && (
+        <>
+          <section className="mb-8">
+            <h2 className="mb-3 text-lg font-semibold">Таблица</h2>
+            <StandingsTable
+              playerIds={registered.map((p) => p.player_id)}
+              matches={matches}
+              seedOf={new Map(registered.map((p) => [p.player_id, p.seed ?? 999]))}
+              names={names}
+              linkBase="/players"
+              final={t.status === "COMPLETED"}
+            />
+          </section>
+          <section className="mb-8">
+            <h2 className="mb-3 text-lg font-semibold">Матчи</h2>
+            <RoundRobinMatches matches={matches} rounds={rounds} names={names} tournamentId={t.id} deltas={matchDeltas} />
+          </section>
+        </>
+      )}
+      {(t.status === "IN_PROGRESS" || t.status === "COMPLETED") && t.format === "SINGLE_ELIMINATION" && (
         <section className="mb-8">
           <h2 className="mb-3 text-lg font-semibold">Сетка</h2>
           <BracketView matches={matches} rounds={rounds} names={names} tournamentId={t.id} deltas={matchDeltas} />
         </section>
-      ) : null}
+      )}
 
       <section>
         <h2 className="mb-3 text-lg font-semibold">Участники</h2>

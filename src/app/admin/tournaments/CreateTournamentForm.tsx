@@ -14,6 +14,14 @@ export function CreateTournamentForm({ defaultStart }: { defaultStart: string })
         <input id="name" name="name" defaultValue="Пятничный турнир" required className="input" />
       </div>
       <div>
+        <label className="label" htmlFor="format">Формат</label>
+        <select id="format" name="format" defaultValue="SINGLE_ELIMINATION" className="input">
+          <option value="SINGLE_ELIMINATION">Плей-офф (олимпийская система)</option>
+          <option value="ROUND_ROBIN">Круговой (каждый с каждым, таблица)</option>
+        </select>
+        <p className="mt-1 text-xs text-muted">Плей-офф: проигравший выбывает. Круговой: все играют со всеми, места по таблице.</p>
+      </div>
+      <div>
         <label className="label" htmlFor="starts_at">Дата и время начала</label>
         <input id="starts_at" name="starts_at" type="datetime-local" defaultValue={defaultStart} required className="input" />
       </div>

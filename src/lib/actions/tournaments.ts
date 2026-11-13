@@ -61,6 +61,7 @@ const createSchema = z.object({
     .pipe(z.number().int().min(2).max(128).optional()),
   description: z.string().trim().max(500).optional(),
   open_now: z.enum(["yes", "no"]).default("yes"),
+  format: z.enum(["SINGLE_ELIMINATION", "ROUND_ROBIN"]).default("SINGLE_ELIMINATION"),
 });
 
 /** datetime-local (no tz) → ISO in club timezone. */
@@ -97,6 +98,7 @@ export async function createTournament(_prev: ActionState, formData: FormData): 
       starts_at: localToIso(d.starts_at, ctx.club.timezone),
       registration_deadline: d.registration_deadline ? localToIso(d.registration_deadline, ctx.club.timezone) : null,
       max_participants: d.max_participants ?? null,
+      format: d.format,
       status: d.open_now === "yes" ? "REGISTRATION_OPEN" : "DRAFT",
       created_by: ctx.userId,
     })
@@ -106,7 +108,7 @@ export async function createTournament(_prev: ActionState, formData: FormData): 
 
   await db.from("audit_logs").insert({
     club_id: ctx.club.id, actor_id: ctx.userId, action: "TOURNAMENT_CREATED",
-    entity_type: "tournament", entity_id: data.id, after: { name: d.name, starts_at: d.starts_at },
+    entity_type: "tournament", entity_id: data.id, after: { name: d.name, starts_at: d.starts_at, format: d.format },
   });
   queueDispatch();
   revalidatePath("/tournaments");

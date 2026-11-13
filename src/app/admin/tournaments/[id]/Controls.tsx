@@ -42,7 +42,7 @@ export function AddParticipantForm({
   );
 }
 
-export function LockBracketButton({ tournamentId, count }: { tournamentId: string; count: number }) {
+export function LockBracketButton({ tournamentId, count, label = "Сформировать сетку" }: { tournamentId: string; count: number; label?: string }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string>();
   return (
@@ -57,7 +57,7 @@ export function LockBracketButton({ tournamentId, count }: { tournamentId: strin
           })
         }
       >
-        {pending ? "Формируем…" : `Сформировать сетку (${count})`}
+        {pending ? "Формируем…" : `${label} (${count})`}
       </button>
       {error && <div className="mt-1 text-xs text-red-600">{error}</div>}
     </div>

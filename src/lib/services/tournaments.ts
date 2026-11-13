@@ -13,7 +13,7 @@ import {
   type MatchCalculation,
   type RatingConfig,
 } from "@/domain/rating";
-import { generateBracket, type Entrant } from "@/domain/tournament";
+import { computeStandings, generateBracket, generateRoundRobin, type Entrant } from "@/domain/tournament";
 
 type DB = SupabaseClient<Database>;
 
@@ -47,32 +47,43 @@ export async function lockBracket(db: DB, tournamentId: string) {
     ratingStatus: p.players.rating_status,
   }));
 
-  const bracket = generateBracket(entrants, tournamentId);
   const rated = entrants.map((e) => e.rating).filter((r): r is number => r !== null);
   const average = rated.length > 0 ? tournamentAverageRating(rated) : null;
   const k = average !== null ? kForAverageRating(average, cfg) : null;
 
-  const payload = {
-    size: bracket.size,
-    rounds: bracket.rounds,
-    average_rating: average,
-    k,
-    algorithm: cfg.algorithm,
-    version: cfg.version,
-    seeds: bracket.seeds.map((s) => ({
-      player_id: s.playerId,
-      seed: s.seed,
-      rating: s.rating,
-      rating_status: s.ratingStatus,
-    })),
-    matches: bracket.matches.map((m) => ({
-      round: m.round,
-      position: m.position,
-      player1_id: m.player1Id,
-      player2_id: m.player2Id,
-    })),
-    byes: bracket.byes,
-  };
+  let payload: Record<string, unknown>;
+  let bracket: { size: number; rounds: number; seeds: { playerId: string; seed: number }[]; matches: unknown[]; byes: string[] };
+  if (t.format === "ROUND_ROBIN") {
+    const rr = generateRoundRobin(entrants, tournamentId);
+    bracket = { size: entrants.length, rounds: rr.rounds, seeds: rr.seeds, matches: rr.matches, byes: [] };
+    payload = {
+      format: "ROUND_ROBIN",
+      size: entrants.length,
+      rounds: rr.rounds,
+      average_rating: average,
+      k,
+      algorithm: cfg.algorithm,
+      version: cfg.version,
+      seeds: rr.seeds.map((s) => ({ player_id: s.playerId, seed: s.seed, rating: s.rating, rating_status: s.ratingStatus })),
+      matches: rr.matches.map((m) => ({ round: m.round, position: m.position, player1_id: m.player1Id, player2_id: m.player2Id })),
+      byes: [],
+    };
+  } else {
+    const b = generateBracket(entrants, tournamentId);
+    bracket = b;
+    payload = {
+      format: "SINGLE_ELIMINATION",
+      size: b.size,
+      rounds: b.rounds,
+      average_rating: average,
+      k,
+      algorithm: cfg.algorithm,
+      version: cfg.version,
+      seeds: b.seeds.map((s) => ({ player_id: s.playerId, seed: s.seed, rating: s.rating, rating_status: s.ratingStatus })),
+      matches: b.matches.map((m) => ({ round: m.round, position: m.position, player1_id: m.player1Id, player2_id: m.player2Id })),
+      byes: b.byes,
+    };
+  }
 
   const { error } = await db.rpc("admin_lock_bracket", { p_tournament_id: tournamentId, p_bracket: payload as Json });
   if (error) throw new TournamentError(error.message);
@@ -264,13 +275,13 @@ export async function correctTournamentMatch(db: DB, input: MatchResultInput & {
 // Completion (newcomer initial ratings)
 // ---------------------------------------------------------------------------
 export async function completeTournament(db: DB, tournamentId: string) {
-  const { data: t } = await db.from("tournaments").select("club_id").eq("id", tournamentId).single();
+  const { data: t } = await db.from("tournaments").select("club_id, format").eq("id", tournamentId).single();
   if (!t) throw new TournamentError("Турнир не найден");
   const cfg = await loadConfig(db, t.club_id);
 
   const { data: parts } = await db
     .from("tournament_participants")
-    .select("player_id, rating_at_lock, rating_status_at_lock")
+    .select("player_id, rating_at_lock, rating_status_at_lock, seed")
     .eq("tournament_id", tournamentId)
     .eq("status", "REGISTERED");
   const snap = new Map((parts ?? []).map((p) => [p.player_id, p.rating_at_lock]));
@@ -278,9 +289,23 @@ export async function completeTournament(db: DB, tournamentId: string) {
 
   const { data: matches } = await db
     .from("matches")
-    .select("winner_player_id, loser_player_id")
+    .select("player1_id, player2_id, winner_player_id, loser_player_id, winner_sets, loser_sets, status")
     .eq("tournament_id", tournamentId)
     .eq("status", "CONFIRMED");
+
+  let places: Json | undefined;
+  if (t.format === "ROUND_ROBIN") {
+    const seedOf = new Map((parts ?? []).map((p) => [p.player_id, p.seed ?? 999]));
+    const rows = computeStandings(
+      (parts ?? []).map((p) => p.player_id),
+      (matches ?? []).map((m) => ({
+        player1Id: m.player1_id, player2Id: m.player2_id, winnerPlayerId: m.winner_player_id, loserPlayerId: m.loser_player_id,
+        winnerSets: m.winner_sets, loserSets: m.loser_sets, status: m.status,
+      })),
+      (id) => seedOf.get(id) ?? 999,
+    );
+    places = rows.map((r) => ({ player_id: r.playerId, place: r.place, points: r.points, decided_by: r.decidedBy })) as Json;
+  }
 
   const payload: Json[] = [];
   const unresolved: string[] = [];
@@ -303,7 +328,7 @@ export async function completeTournament(db: DB, tournamentId: string) {
     } as unknown as Json);
   }
 
-  const { error } = await db.rpc("admin_complete_tournament", { p_tournament_id: tournamentId, p_newcomers: payload });
+  const { error } = await db.rpc("admin_complete_tournament", { p_tournament_id: tournamentId, p_newcomers: payload, p_places: places });
   if (error) throw new TournamentError(error.message);
   return { rated: payload.length, unresolved };
 }

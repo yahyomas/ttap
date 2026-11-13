@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Tables } from "@/lib/supabase/database.types";
-import { TOURNAMENT_STATUS_CLASS, TOURNAMENT_STATUS_LABEL } from "@/lib/queries/tournaments";
+import { TOURNAMENT_FORMAT_LABEL, TOURNAMENT_STATUS_CLASS, TOURNAMENT_STATUS_LABEL } from "@/lib/queries/tournaments";
 
 export function fmtDate(iso: string, tz: string) {
   return new Date(iso).toLocaleString("ru-RU", { timeZone: tz, weekday: "short", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
@@ -18,7 +18,7 @@ export function TournamentCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="font-semibold">{t.name}</div>
-          <div className="mt-1 text-sm text-muted">{fmtDate(t.starts_at, tz)}</div>
+          <div className="mt-1 text-sm text-muted">{fmtDate(t.starts_at, tz)} · {TOURNAMENT_FORMAT_LABEL[t.format]}</div>
           {t.registration_deadline && t.status === "REGISTRATION_OPEN" && (
             <div className="text-xs text-muted">Регистрация до {fmtDate(t.registration_deadline, tz)}</div>
           )}
